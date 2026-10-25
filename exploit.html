@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PS4 14.00 — WebKit Entry</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0a;
+            color: #00ff41;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            padding: 20px;
+        }
+        #header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 15px;
+        }
+        #header h1 {
+            color: #00aaff;
+            font-size: 22px;
+            margin-bottom: 5px;
+        }
+        #header .fw {
+            color: #ff6600;
+            font-size: 16px;
+        }
+        #status {
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 15px;
+            min-height: 40px;
+        }
+        #status .step {
+            color: #ffcc00;
+        }
+        #out {
+            background: #050505;
+            border: 1px solid #222;
+            border-radius: 4px;
+            padding: 10px;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 60vh;
+            overflow-y: auto;
+            line-height: 1.4;
+        }
+        .success { color: #00ff41; }
+        .error   { color: #ff4444; }
+        .warn    { color: #ffcc00; }
+        .info    { color: #00aaff; }
+        #buttons {
+            margin-top: 15px;
+            text-align: center;
+        }
+        button {
+            background: #1a1a1a;
+            color: #00ff41;
+            border: 1px solid #00ff41;
+            padding: 10px 25px;
+            margin: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        button:hover { background: #00ff41; color: #000; }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+        #credits {
+            margin-top: 20px;
+            font-size: 11px;
+            color: #555;
+            text-align: center;
+        }
+        #credits a { color: #666; }
+    </style>
+</head>
+<body>
+
+<div id="header">
+    <h1>PS4 WebKit Exploit</h1>
+    <div class="fw">Firmware 14.00</div>
+</div>
+
+<div id="status">
+    <span class="step" id="step">Initializing...</span>
+</div>
+
+<pre id="out"></pre>
+
+<div id="buttons">
+    <button id="btn-run" onclick="runExploit()">► Run Exploit (FW 14.00)</button>
+    <button onclick="window.location.href='exploit_1304.html'">► Switch to FW 13.04 (Celsius KEX)</button>
+    <button id="btn-goldhen" onclick="loadGoldHEN()" disabled>Load GoldHEN</button>
+</div>
+
+<div id="credits">
+    adri22235 — ps4-suid-scanner<br>
+    Gadgets: WebKit 14.00 (17/17) · Kernel: Al-Azif / Scene-Collective<br>
+    Celsius KEX (FW ≤13.04): bollars · BD-JB: ps3120/Gezine<br>
+    Based on Jordy by Scene-Collective
+</div>
+
+<!-- WebKit gadgets for FW 14.00 -->
+<script src="webkit_gadgets_1400.js"></script>
+<!-- Stage 2: persistent r/w + ROP + kernel exploit -->
+<script src="jordy_stage2_1400.js"></script>
+
+<script>
+// ============================================================
+// exploit.html — WebKit entry point for PS4 FW 14.00
+//
+// This page is loaded on the PS4 web browser.
+// It triggers the WebKit vulnerability to gain initial
+// code execution, then hands off to stage2.
+//
+// Entry vectors confirmed on 13.04 (need 14.00 verification):
+//   - DOM postMessage type confusion
+//   - DOM getter UAF
+//   - LLInt OOB read
+//   - CSSFontFace UAF (ntfargo)
+//
+// For 14.00, the same WebKit bugs may be present since Sony's
+// update was "stability improvements" (usually kernel-only patches).
+// ============================================================
+
+var FW_VERSION = "14.00";
+var out = document.getElementById("out");
+var stepEl = document.getElementById("step");
+
+function setStep(msg) {
+    stepEl.textContent = msg;
+}
+
+function print(msg, cls) {
+    cls = cls || "info";
+    var line = document.createElement("span");
+    line.className = cls;
+    line.textContent = msg + "\n";
+    out.appendChild(line);
+    out.scrollTop = out.scrollHeight;
+}
+
+function printSuccess(msg) { print("[✓] " + msg, "success"); }
+function printError(msg)   { print("[✗] " + msg, "error"); }
+function printWarn(msg)    { print("[!] " + msg, "warn"); }
+function printInfo(msg)    { print("[i] " + msg, "info"); }
+
+// ============================================================
+// Firmware detection
+// ============================================================
+function detectFirmware() {
+    // PS4 browser UA contains firmware version
+    var ua = navigator.userAgent;
+    printInfo("User-Agent: " + ua);
+
+    // Match PS4 firmware: "PlayStation 4/X.XX"
+    var m = ua.match(/PlayStation 4\/([\d.]+)/);
+    if (m) {
+        var fw = m[1];
+        printInfo("Detected PS4 firmware: " + fw);
+        if (fw !== FW_VERSION) {
+            printWarn("This exploit targets FW " + FW_VERSION);
+            printWarn("Your firmware is " + fw + " — offsets may not match!");
+            return false;
+        }
+        printSuccess("Firmware " + fw + " confirmed");
+        return true;
+    }
+
+    // Not running on PS4
+    printWarn("Not running on PS4 browser");
+    printInfo("Running in analysis/debug mode");
+    return false;
+}
+
+// ============================================================
+// WebKit exploit trigger
+//
+// This is where the actual WebKit vulnerability would be
+// triggered to get initial code execution.
+//
+// PLACEHOLDER: The actual exploit primitive (Jordy, ntfargo, etc.)
+// needs to be integrated here. The exploit flow is:
+//
+// 1. Trigger UAF / type confusion / OOB in WebKit
+// 2. Gain arbitrary read/write on the heap
+// 3. Find a Uint8Array, corrupt its m_vector pointer
+// 4. Use corrupted Uint8Array for R/W primitives
+// 5. Call stage2_init() with the primitives
+//
+// For the scene to complete this:
+//   - Port Jordy (CSSFontFace UAF) to 14.00 WebKit
+//   - Or use DOM postMessage type confusion
+//   - Or use LLInt OOB read
+// ============================================================
+function triggerWebkitExploit() {
+    setStep("Triggering WebKit exploit...");
+    printInfo("WebKit exploit trigger — FW " + FW_VERSION);
+    printInfo("");
+
+    // ─── Check if we're on PS4 ───
+    var isPS4 = detectFirmware();
+    printInfo("");
+
+    if (!isPS4) {
+        printWarn("=== ANALYSIS MODE ===");
+        printInfo("");
+        printInfo("This page needs to run on a PS4 with FW " + FW_VERSION);
+        printInfo("The WebKit exploit primitive is not included in this release.");
+        printInfo("");
+        printInfo("To complete the exploit, the scene needs to:");
+        printInfo("  1. Port a WebKit entry vector to 14.00:");
+        printInfo("     - Jordy (CSSFontFace UAF) — tested on 13.04");
+        printInfo("     - DOM postMessage type confusion");
+        printInfo("     - LLInt OOB read");
+        printInfo("  2. Provide:");
+        printInfo("     - candidate (corrupted Uint8Array)");
+        printInfo("     - rwView (genuine Uint8Array for R/W)");
+        printInfo("     - targetAddress (addrof leak)");
+        printInfo("  3. Call: stage2_init(candidate, rwView, rwHeader, ...)");
+        printInfo("");
+        printInfo("WebKit gadgets (17/17 verified):");
+
+        var gadgets = webkit_gadgets_1400;
+        for (var name in gadgets) {
+            printInfo("  " + name + " = 0x" + gadgets[name].toString(16));
+        }
+
+        printInfo("");
+        printInfo("Kernel offsets from 1400.c (Al-Azif):");
+        printInfo("  PRISON0    = 0x" + K.PRISON0.toString(16));
+        printInfo("  ROOTVNODE  = 0x" + K.ROOTVNODE.toString(16));
+        printInfo("  ALLPROC    = 0x" + K.ALLPROC.toString(16));
+        printInfo("  SYSENT     = 0x" + K.SYSENT.toString(16));
+        printInfo("  memcpy     = 0x" + K.memcpy.toString(16));
+        printInfo("");
+        printWarn("Exploit kernel path: Celsius (ffs_mount integer overflow)");
+        printWarn("Patched in FW 13.50 — need new KEX for 14.00");
+        printInfo("");
+
+        // Run stage2 in analysis mode (no primitives)
+        printInfo("Running Stage 2 in analysis mode...");
+        printInfo("");
+        stage2_run();
+
+        return;
+    }
+
+    // ─── On PS4: Trigger the actual exploit ───
+    printInfo("Preparing WebKit exploit...");
+
+    // TODO: Integrate exploit primitive here
+    // When Jordy or equivalent is ported to 14.00:
+    //
+    // 1. Allocate spray objects
+    // 2. Trigger UAF
+    // 3. Reclaim freed memory with Uint8Array
+    // 4. Gain candidate control
+    // 5. Call stage2_init()
+    //
+    // For now, display what the scene needs to provide:
+    printWarn("Exploit primitive not yet integrated for FW 14.00");
+    printInfo("Waiting for scene contribution...");
+}
+
+// ============================================================
+// GoldHEN loader (after kernel exploit succeeds)
+// ============================================================
+function loadGoldHEN() {
+    printInfo("Connecting to BinLoader on port 9021...");
+    // After kernel patches are applied and BinLoader is active:
+    // 1. Download goldhen.bin from known URL
+    // 2. Send to BinLoader socket
+    // 3. Wait for payload execution
+    printWarn("BinLoader not active — kernel exploit required first");
+}
+
+// ============================================================
+// Main
+// ============================================================
+function runExploit() {
+    document.getElementById("btn-run").disabled = true;
+    out.textContent = "";
+
+    print("╔══════════════════════════════════════════╗", "info");
+    print("║  PS4 WebKit Exploit — Firmware 14.00     ║", "info");
+    print("║  adri22235 / ps4-suid-scanner            ║", "info");
+    print("╚══════════════════════════════════════════╝", "info");
+    print("", "info");
+
+    triggerWebkitExploit();
+}
+
+// Auto-detect on load
+window.onload = function() {
+    setStep("Ready — press Run to start");
+    printInfo("Page loaded. Press [Run Exploit] to begin.");
+    printInfo("Target: PS4 FW " + FW_VERSION);
+};
+</script>
+
+</body>
+</html>
